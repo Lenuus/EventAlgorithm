@@ -12,45 +12,49 @@ class Program
         List<Event> events = MockData.GetEvents();
         List<DurationBetweenLocations> durationBetweenLocations = MockData.GetDurationBetweenLocations();
 
-        List<(int Id, string StartTime, string Name)> selectedEvents = SelectEvents(events, durationBetweenLocations);
+        List<Event> selectedEvents = SelectEvents(events, durationBetweenLocations, out int sumPriority);
         Console.WriteLine("Katılınabilecek Maksimum Etkinlik Sayısı: " + selectedEvents.Count);
         Console.Write("Katılınabilecek Etkinliklerin ID'leri ve Başlangıç Zamanları: ");
         foreach (var ev in selectedEvents)
         {
-            Console.Write($"({ev.Id}, {ev.StartTime},{ev.Name}), ");
+            Console.Write($"({ev.Id}, {ev.StartTime}), ");
         }
         Console.WriteLine();
-        Console.WriteLine("Toplam Değer: " + CalculateTotalPriority(events, selectedEvents.Select(e => e.Id).ToList()));
+        Console.WriteLine("Toplam Değer: " + sumPriority);
     }
 
 
-    static List<(int Id, string StartTime,string Name)> SelectEvents(List<Event> events, List<DurationBetweenLocations> durationBetweenLocations)
+    static List<Event> SelectEvents(List<Event> events, List<DurationBetweenLocations> durationBetweenLocations, out int totalPriority)
     {
+        totalPriority = 0;
         events.Sort((x, y) => y.Priority.CompareTo(x.Priority));
 
-        List<(int Id, string StartTime, string Name)> selectedEvents = new List<(int, string,string)>();
+        List<Event> selectedEvents = new List<Event>();
         HashSet<string> visitedLocations = new HashSet<string>();
 
         foreach (var ev in events)
         {
-            if (!visitedLocations.Contains(ev.Location))
+            if (visitedLocations.Contains(ev.Location))
             {
-                selectedEvents.Add((ev.Id, ev.Name, ev.StartTime.ToString()));
+                continue;
+            }
+            bool overlap = selectedEvents.Any(f => (ev.StartTime < f.EndTime && ev.EndTime > f.StartTime) &&
+            durationBetweenLocations.Any(x => (x.From == f.Location && x.To == ev.Location) ||
+            ( x.From == ev.Location && x.To == f.Location)));
+
+            if (!overlap)
+            {
+                selectedEvents.Add(ev);
                 visitedLocations.Add(ev.Location);
+                totalPriority += ev.Priority;
+                if (selectedEvents.Count == 3)
+                {
+                    break;
+                }
+
             }
         }
 
         return selectedEvents;
-    }
-
-    static int CalculateTotalPriority(List<Event> events, List<int> selectedEventIds)
-    {
-        int totalPriority = 0;
-        foreach (var eventId in selectedEventIds)
-        {
-            var ev = events.Find(e => e.Id == eventId);
-            totalPriority += ev.Priority;
-        }
-        return totalPriority;
     }
 }
